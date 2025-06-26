@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match the Hearts</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
+    <script defer src="game.js"></script>
+    <style>
+        body {
+            background-color: #ffebee;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #game-container {
+            width: 800px;
+            height: 600px;
+            border: 5px solid #8aece4;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+    <script>
+        const config = {
+            type: Phaser.AUTO,
+            width: 800,
+            height: 600,
+            parent: 'game-container',
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            }
+        };
+        
+        const game = new Phaser.Game(config);
+        let hearts = [];
+        let firstClick = null;
+        let timer;
+        let timeLeft = 30;
+        let score = 0;
+        let scoreText;
+        let timerText;
+        
+        function preload() {
+            this.load.image('redHeart', 'Assets/Red_Heart.png');
+            this.load.image('pinkHeart', 'Assets/Pink_Heart.png');
+            this.load.image('goldenHeart', 'Assets/Golden_Heart.png');
+            this.load.image('brokenHeart', 'Assets/BrokenHeart.png');
+        }
+
+        function create() {
+            this.cameras.main.setBackgroundColor('#fff5f5'); // Light pink background
+
+            let heartTypes = ['redHeart', 'pinkHeart', 'goldenHeart', 'brokenHeart'];
+            let pairs = [];
+
+            // Create pairs (2 of each type)
+            heartTypes.forEach(type => {
+                pairs.push(type, type);
+            });
+
+            // Shuffle the pairs randomly
+            Phaser.Utils.Array.Shuffle(pairs);
+
+            let positions = []; // Store used positions
+
+            scoreText = this.add.text(10, 10, 'Score: 0', { fontSize: '20px', fill: '#d32f2f' });
+            timerText = this.add.text(700, 10, 'Time: 30', { fontSize: '20px', fill: '#d32f2f' });
+
+            timer = this.time.addEvent({
+                delay: 1000,
+                callback: updateTimer,
+                callbackScope: this,
+                loop: true
+            });
+
+            for (let i = 0; i < pairs.length; i++) {
+                let x, y, overlap;
+                
+                do {
+                    x = Phaser.Math.Between(100, 700);
+                    y = Phaser.Math.Between(100, 500);
+                    overlap = positions.some(pos => Phaser.Math.Distance.Between(x, y, pos.x, pos.y) < 80);
+                } while (overlap);
+
+                positions.push({ x, y });
+
+                let heart = this.add.image(x, y, pairs[i]).setInteractive();
+                heart.setScale(0.2); // Scale to fit the screen
+                heart.setData('matched', false);
+                heart.on('pointerdown', () => checkMatch(heart));
+                hearts.push(heart);
+            }
+        }
+      
+
+        function checkMatch(heart) {
+            if (!firstClick) {
+                firstClick = heart;
+                firstClick.setAlpha(0.5);
+            } else {
+                if (firstClick !== heart && firstClick.texture.key === heart.texture.key) {
+                    // Match found! Hide both hearts
+                    firstClick.setVisible(false);
+                    heart.setVisible(false);
+                    score += 10;
+                    scoreText.setText('Score: ' + score);
+                } else {
+                    firstClick.setAlpha(1);
+                }
+                firstClick = null;
+            }
+        }
+        
+        function updateTimer() {
+            if (timeLeft > 0) {
+                timeLeft--;
+                timerText.setText('Time: ' + timeLeft);
+            } else {
+                timer.remove(); // Stop the countdown completely
+                endGame.call(this); // Call endGame properly
+            }
+        }
+
+
+        function update() {
+            if (timeLeft < 10) {
+                hearts.forEach(heart => {
+                    heart.x += Phaser.Math.Between(-1, 1); // Hearts start moving randomly
+                    heart.y += Phaser.Math.Between(-1, 1);
+                });
+            }
+        }
+
+        function endGame() {
+            this.scene.pause(); // Pause the game
+            timer.remove(); // Stop the timer
+
+            let totalTimeTaken = 30 - timeLeft; // Correctly calculate time taken
+
+            // Add Game Over text
+            this.add.text(250, 200, 'Game Over!', { fontSize: '40px', fill: '#d32f2f' });
+
+            // Show final time taken
+            this.add.text(250, 250, `Total Time Taken: ${totalTimeTaken}s`, { fontSize: '25px', fill: '#333' });
+
+            // Show final score
+            this.add.text(250, 300, `Your Score: ${score}`, { fontSize: '25px', fill: '#333' });
+
+            // Add restart button
+            let restartButton = this.add.text(300, 350, 'Restart', { 
+                fontSize: '30px', 
+                fill: '#d32f2f', 
+                backgroundColor: '#fff', 
+                padding: 10 
+            })
+            .setInteractive()
+            .on('pointerdown', () => {
+                timeLeft = 30; // Reset timer
+                score = 0; // Reset score
+                this.scene.restart(); // Restart game
+            });
+        }
+
+
+
+    </script>
+</body>
+</html>
